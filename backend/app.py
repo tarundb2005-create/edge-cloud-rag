@@ -1,5 +1,8 @@
-from fastapi import FastAPI
+
 from pydantic import BaseModel
+
+import asyncio
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 
 from rag.rag_pipeline import generate_answer
 
@@ -29,3 +32,21 @@ def ask_question(request: QuestionRequest):
         "question": request.question,
         "answer": answer
     }
+from fastapi import WebSocket, WebSocketDisconnect
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+
+    await websocket.accept()
+
+    try:
+        while True:
+
+            question = await websocket.receive_text()
+
+            answer = generate_answer(question)
+
+            await websocket.send_text(answer)
+
+    except WebSocketDisconnect:
+        print("Client disconnected")
