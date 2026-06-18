@@ -1,5 +1,6 @@
 
 from pydantic import BaseModel
+from fastapi.middleware.cors import CORSMiddleware
 
 import asyncio
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
@@ -9,6 +10,13 @@ from rag.rag_pipeline import generate_answer
 app = FastAPI(
     title="Edge Cloud Agentic RAG",
     version="1.0"
+)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
