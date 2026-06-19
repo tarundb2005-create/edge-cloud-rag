@@ -1,4 +1,3 @@
-
 import chromadb
 from pathlib import Path
 
@@ -19,15 +18,26 @@ def retrieve(query):
         n_results=2
     )
 
-    return results["documents"][0]
+    return {
+        "documents": results["documents"][0],
+        "ids": results["ids"][0]
+    }
 
 
 if __name__ == "__main__":
+
     query = input("Ask: ")
 
-    docs = retrieve(query)
+    results = retrieve(query)
 
     print("\nRetrieved Context:\n")
 
-    for doc in docs:
-        print("-", doc)
+    for i, doc in enumerate(results["documents"]):
+        print(f"\nChunk {i+1}")
+        print("-" * 50)
+        print(doc)
+
+    print("\nSources:\n")
+
+    for source_id in results["ids"]:
+        print(source_id)

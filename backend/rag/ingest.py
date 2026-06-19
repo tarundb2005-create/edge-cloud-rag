@@ -1,4 +1,3 @@
-
 from pathlib import Path
 import chromadb
 from pypdf import PdfReader
@@ -13,30 +12,52 @@ collection = client.get_or_create_collection(
     name="knowledge_base"
 )
 
-PDF_PATH = "./data/The_Recording_Horror_Story.pdf"
+DATA_DIR = BASE_DIR / "data"
 
-reader = PdfReader(PDF_PATH)
+pdf_files = list(DATA_DIR.glob("*.pdf"))
 
-all_text = ""
-
-for page in reader.pages:
-    text = page.extract_text()
-    if text:
-        all_text += text + "\n"
-
-# Simple chunking
 chunk_size = 500
 
-chunks = []
+collection.delete(
+    ids=collection.get()["ids"]
+)
 
-for i in range(0, len(all_text), chunk_size):
-    chunks.append(all_text[i:i + chunk_size])
+for pdf_file in pdf_files:
 
-# Store in ChromaDB
-for idx, chunk in enumerate(chunks):
-    collection.add(
-        documents=[chunk],
-        ids=[f"pdf_chunk_{idx}"]
+    print(f"\nProcessing: {pdf_file.name}")
+
+    reader = PdfReader(str(pdf_file))
+
+    all_text = ""
+
+    for page in reader.pages:
+        text = page.extract_text()
+
+        if text:
+            all_text += text + "\n"
+
+    chunks = []
+
+    for i in range(
+        0,
+        len(all_text),
+        chunk_size
+    ):
+        chunks.append(
+            all_text[i:i + chunk_size]
+        )
+
+    for idx, chunk in enumerate(chunks):
+
+        collection.add(
+            documents=[chunk],
+            ids=[
+                f"{pdf_file.stem}_chunk_{idx}"
+            ]
+        )
+
+    print(
+        f"Stored {len(chunks)} chunks from {pdf_file.name}"
     )
 
-print(f"Stored {len(chunks)} chunks successfully!")
+print("\nAll PDFs ingested successfully!")

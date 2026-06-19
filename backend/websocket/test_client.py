@@ -8,11 +8,19 @@ async def main():
         ping_interval=None
     ) as websocket:
 
-        await websocket.send("Summarize the story")
-
-        answer = await websocket.recv()
+        await websocket.send(
+            "Summarize the story"
+        )
 
         print("\nAnswer:\n")
-        print(answer)
+
+        while True:
+
+            chunk = await websocket.recv()
+
+            if chunk == "[END]":
+                break
+
+            print(chunk, end="", flush=True)
 
 asyncio.run(main())

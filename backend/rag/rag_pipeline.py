@@ -1,4 +1,3 @@
-
 import chromadb
 import ollama
 from pathlib import Path
@@ -9,7 +8,9 @@ client = chromadb.PersistentClient(
     path=str(BASE_DIR / "chroma_db")
 )
 
-collection = client.get_collection("knowledge_base")
+collection = client.get_collection(
+    "knowledge_base"
+)
 
 
 def retrieve(query):
@@ -17,13 +18,22 @@ def retrieve(query):
         query_texts=[query],
         n_results=2
     )
-    return "\n".join(results["documents"][0])
+
+    return {
+        "documents": results["documents"][0],
+        "ids": results["ids"][0]
+    }
 
 
 def generate_answer(query):
+
     print("1. Retrieving context...")
 
-    context = retrieve(query)
+    retrieval_results = retrieve(query)
+
+    context = "\n".join(
+        retrieval_results["documents"]
+    )
 
     print("2. Context retrieved:")
     print(context)
@@ -52,11 +62,20 @@ Answer only using the provided context.
 
     print("4. Ollama responded")
 
-    return response["message"]["content"]
+    return {
+        "answer": response["message"]["content"],
+        "sources": retrieval_results["ids"]
+    }
+
+
 if __name__ == "__main__":
+
     query = input("Ask: ")
 
-    answer = generate_answer(query)
+    result = generate_answer(query)
 
     print("\nAnswer:\n")
-    print(answer)
+    print(result["answer"])
+
+    print("\nSources:\n")
+    print(result["sources"])

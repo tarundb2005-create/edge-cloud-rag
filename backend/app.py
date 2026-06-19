@@ -1,9 +1,7 @@
-
 from pydantic import BaseModel
-from fastapi.middleware.cors import CORSMiddleware
-
-import asyncio
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
+import asyncio
 
 from rag.rag_pipeline import generate_answer
 
@@ -11,6 +9,7 @@ app = FastAPI(
     title="Edge Cloud Agentic RAG",
     version="1.0"
 )
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -34,27 +33,58 @@ def home():
 @app.post("/ask")
 def ask_question(request: QuestionRequest):
 
-    answer = generate_answer(request.question)
+    result = generate_answer(
+        request.question
+    )
 
     return {
         "question": request.question,
-        "answer": answer
+        "answer": result["answer"],
+        "sources": result["sources"]
     }
-from fastapi import WebSocket, WebSocketDisconnect
+
 
 @app.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket):
+async def websocket_endpoint(
+    websocket: WebSocket
+):
 
     await websocket.accept()
 
     try:
+
         while True:
 
             question = await websocket.receive_text()
 
-            answer = generate_answer(question)
+            result = generate_answer(
+                question
+            )
 
-            await websocket.send_text(answer)
+            answer = result["answer"]
+            sources = result["sources"]
+
+            for word in answer.split():
+
+                await websocket.send_text(
+                    word + " "
+                )
+
+                await asyncio.sleep(0.03)
+
+            await websocket.send_text(
+                "[SOURCES]"
+            )
+
+            for source in sources:
+
+                await websocket.send_text(
+                    source
+                )
+
+            await websocket.send_text(
+                "[END]"
+            )
 
     except WebSocketDisconnect:
         print("Client disconnected")
