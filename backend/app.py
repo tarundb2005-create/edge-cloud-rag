@@ -2,8 +2,9 @@ from pydantic import BaseModel
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 import asyncio
-
+from fastapi import UploadFile, File
 from rag.rag_pipeline import generate_answer
+from pathlib import Path
 
 app = FastAPI(
     title="Edge Cloud Agentic RAG",
@@ -43,6 +44,30 @@ def ask_question(request: QuestionRequest):
         "sources": result["sources"]
     }
 
+@app.post("/upload")
+async def upload_pdf(
+    file: UploadFile = File(...)
+):
+
+    BASE_DIR = Path(__file__).resolve().parent
+
+    DATA_DIR = BASE_DIR / "data"
+
+    DATA_DIR.mkdir(
+        exist_ok=True
+    )
+
+    file_path = DATA_DIR / file.filename
+
+    with open(file_path, "wb") as buffer:
+        buffer.write(
+            await file.read()
+        )
+
+    return {
+        "message":
+            f"{file.filename} uploaded successfully"
+    }
 
 @app.websocket("/ws")
 async def websocket_endpoint(
