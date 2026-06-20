@@ -1,7 +1,8 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
+import 'package:web_socket_channel/web_socket_channel.dart';
+
+import 'models/message.dart';
+import 'widgets/chat_bubble.dart';
 
 void main() {
   runApp(const MyApp());
@@ -31,91 +32,129 @@ class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController controller =
       TextEditingController();
 
-  List<String> messages = [];
+  late WebSocketChannel channel;
+
+  List<Message> messages = [];
+
+  int currentBotIndex = -1;
+
+  @override
+  void initState() {
+    super.initState();
+
+    channel = WebSocketChannel.connect(
+      Uri.parse(
+        "ws://127.0.0.1:8000/ws",
+      ),
+    );
+
+    bool receivingSources = false;
+    List<String> sources = [];
+
+    channel.stream.listen((chunk) {
+      if (chunk == "[SOURCES]") {
+        receivingSources = true;
+        return;
+      }
+
+      if (chunk == "[END]") {
+        if (currentBotIndex != -1) {
+          setState(() {
+            messages[currentBotIndex] = Message(
+              text: messages[currentBotIndex].text,
+              isUser: false,
+              sources: sources,
+            );
+          });
+        }
+
+        receivingSources = false;
+        sources = [];
+
+        return;
+      }
+
+      if (currentBotIndex == -1) {
+        return;
+      }
+
+      if (receivingSources) {
+        sources.add(chunk);
+      } else {
+        setState(() {
+          messages[currentBotIndex] = Message(
+            text:
+                messages[currentBotIndex].text +
+                chunk,
+            isUser: false,
+            sources:
+                messages[currentBotIndex].sources,
+          );
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    channel.sink.close();
+    controller.dispose();
+    super.dispose();
+  }
 
   Future<void> askQuestion() async {
-
     final question = controller.text;
 
     if (question.isEmpty) return;
 
     setState(() {
-      messages.add("You: $question");
+      messages.add(
+        Message(
+          text: question,
+          isUser: true,
+        ),
+      );
+
+      messages.add(
+        Message(
+          text: "",
+          isUser: false,
+          sources: [],
+        ),
+      );
     });
 
     controller.clear();
 
-    try {
+    currentBotIndex = messages.length - 1;
 
-      final response = await http.post(
-        Uri.parse(
-          "http://localhost:8000/ask",
-        ),
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: jsonEncode({
-          "question": question
-        }),
-      );
-
-      if (response.statusCode == 200) {
-
-        final data =
-            jsonDecode(response.body);
-
-        setState(() {
-          messages.add(
-            "Bot: ${data["answer"]}"
-          );
-        });
-
-      } else {
-
-        setState(() {
-          messages.add(
-            "Bot: Server Error"
-          );
-        });
-
-      }
-
-    } catch (e) {
-
-      setState(() {
-        messages.add(
-          "Bot Error: $e"
-        );
-      });
-
-    }
+    channel.sink.add(question);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Edge Cloud RAG"),
+        title: const Text(
+          "Edge Cloud RAG",
+        ),
       ),
       body: Column(
         children: [
-
           Expanded(
             child: ListView.builder(
               itemCount: messages.length,
               itemBuilder: (context, index) {
-                return ListTile(
-                  title: Text(messages[index]),
+                return ChatBubble(
+                  message: messages[index],
                 );
               },
             ),
           ),
-
           Padding(
             padding: const EdgeInsets.all(10),
             child: Row(
               children: [
-
                 Expanded(
                   child: TextField(
                     controller: controller,
@@ -126,12 +165,10 @@ class _ChatScreenState extends State<ChatScreen> {
                     ),
                   ),
                 ),
-
                 IconButton(
                   icon: const Icon(Icons.send),
                   onPressed: askQuestion,
                 ),
-
               ],
             ),
           ),
