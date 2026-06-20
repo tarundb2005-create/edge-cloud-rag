@@ -5,6 +5,7 @@ import asyncio
 from fastapi import UploadFile, File
 from rag.rag_pipeline import generate_answer
 from pathlib import Path
+from rag.pdf_ingest import ingest_pdf
 
 app = FastAPI(
     title="Edge Cloud Agentic RAG",
@@ -64,9 +65,15 @@ async def upload_pdf(
             await file.read()
         )
 
+    chunk_count = ingest_pdf(
+        file_path
+    )
+
     return {
         "message":
-            f"{file.filename} uploaded successfully"
+            f"{file.filename} uploaded successfully",
+        "chunks":
+            chunk_count
     }
 
 @app.websocket("/ws")
